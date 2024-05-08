@@ -5,6 +5,7 @@ d3.csv("cleaned_data.csv").then(function(data) {
         d.Year = d3.timeParse("%Y")(d.Year);
         d.GDP = +d.GDP;
     });
+    console.log(data)
 
     // Group data by Country
     const sumstat = d3.group(data, d => d.Country);
