@@ -15,7 +15,6 @@ function draw(data) {
     // Group data by Country
     const sumstat = d3.group(data, d => d.country);
 
-    // Set dimensions and margins for the graph
     const margin = {top: 20, right: 80, bottom: 30, left: 50},
           width = 960 - margin.left - margin.right,
           height = 600 - margin.top - margin.bottom;
@@ -30,7 +29,6 @@ function draw(data) {
                   .append("g")
                   .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Add X axis
     const x = d3.scaleTime()
                 .domain(d3.extent(data, d => d.year))
                 .range([0, width]);
@@ -38,7 +36,6 @@ function draw(data) {
        .attr("transform", `translate(0,${height})`)
        .call(d3.axisBottom(x));
 
-    // Add Y axis
     const y = d3.scaleLinear()
                 .domain([0, d3.max(data, d => d.gdp)])
                 .range([height, 0]);
