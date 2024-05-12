@@ -12,7 +12,7 @@ let tooltip;
 // function to load data
 async function load() {
     const data = await d3.csv("electricity_data.csv");
-    return data;
+    return data
 }
 
 // Function to draw the graph 
@@ -34,7 +34,8 @@ function draw(data) {
     
     const x = d3.scaleTime()
                 .domain(d3.extent(data, d => d.year))
-                .range([0, width]);
+                .range([0, width])
+
 
     // add x-axis tick
     svg.append("g")
@@ -42,8 +43,12 @@ function draw(data) {
        .call(d3.axisBottom(x));
 
     const y = d3.scaleLinear()
-                .domain([0, d3.max(data, d => d.elec)])
+                .domain([0, d3.max(data, d => d.gdp)])
                 .range([height, 0]);
+
+    // const y = d3.scaleLog()
+    //         .domain([1, d3.max(data, d => d.gdp)])
+    //         .range([height, 0])
 
             
     // add gridline and y-axis tick
@@ -59,7 +64,7 @@ function draw(data) {
         .attr("y", 0)
         .attr("fill", "currentColor")
         .attr("text-anchor", "start")
-        .text("↑ Electricity Generation (TWh)"));
+        .text("↑ GDP For Each Country"));
 
     // Color palette
     const color = d3.scaleOrdinal()
@@ -79,10 +84,10 @@ function draw(data) {
     .style("mix-blend-mode", "multiply")
     .attr("d", d3.line()
                    .x(function(d) { return x(d.year); })
-                   .y(function(d) { return y(d.elec); })
+                   .y(function(d) { return y(d.gdp); })
                 );
 
-    points = data.map((d) => [x(d.year), y(d.elec), d.country]);
+    points = data.map((d) => [x(d.year), y(d.gdp), d.country]);
 
     // Add an invisible layer for the interactive tip.
     dot = svg.append("g")
@@ -138,8 +143,14 @@ function initTooltip() {
     // .style("border", "solid")
     // .style("border-width", "2px")
     // .style("border-radius", "5px")
-    // .style("padding", "5px")
+    // .style("padding", "5px");
 }
+
+// function initTooltip() {
+//     tooltip = d3.select("body").append("div")
+//         .attr("class", "tooltip")
+//         .style("opacity", 0);
+// }
 
 function line_tooltip(country, x, y) {
 
@@ -210,20 +221,36 @@ function line_tooltip(country, x, y) {
 
 
 // Load and parse the data
-load().then(d => {
-    data = d;
-    // Parse the data
-    data.forEach(function(d) {
-        d.year = d3.timeParse("%Y")(d.year);
-        d.elec = +d.electricity_generation;
+// load().then(d => {
+//     data = d;
+//     // Parse the data
+//     data.forEach(function(d) {
+//         d.year = d3.timeParse("%Y")(d.year);
+//         d.elec = +d.electricity_generation;
 
-        d.coal = +d.coal_electricity;
-        d.fossil = +d.fossil_electricity;
-        d.gas = +d.gas_electricity;
-        d.nuclear = +d.nuclear_electricity;
-        d.solar = +d.renewables_electricity;
-        d.wind = +d.wind_electricity;
-    });
+//         d.coal = +d.coal_electricity;
+//         d.fossil = +d.fossil_electricity;
+//         d.gas = +d.gas_electricity;
+//         d.nuclear = +d.nuclear_electricity;
+//         d.solar = +d.renewables_electricity;
+//         d.wind = +d.wind_electricity;
+//     });
+    load().then(d => {
+        data = d.map(row => ({
+            gdp: +row.gdp,
+            year: d3.timeParse("%Y")(row.year),
+            elec: +row.electricity_generation,
+            coal: +row.coal_electricity,
+            fossil: +row.fossil_electricity,
+            gas: +row.gas_electricity,
+            nuclear: +row.nuclear_electricity,
+            solar: +row.renewables_electricity,
+            wind: +row.wind_electricity,
+            country: row.country
+        })).filter(row => row.year >= new Date("2000-01-01")); // Filter to keep only data from 2000 onward
+
+
+    // initTooltip(); // Initialize the tooltip
 
     draw(data);
 
