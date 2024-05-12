@@ -236,6 +236,8 @@ function line_tooltip(country, x, y) {
 //         d.wind = +d.wind_electricity;
 //     });
     load().then(d => {
+        const GDP_THRESHOLD = 1000;  // GDP threshold set at $20 billion
+
         data = d.map(row => ({
             gdp: +row.gdp,
             year: d3.timeParse("%Y")(row.year),
@@ -247,8 +249,9 @@ function line_tooltip(country, x, y) {
             solar: +row.renewables_electricity,
             wind: +row.wind_electricity,
             country: row.country
-        })).filter(row => row.year >= new Date("2000-01-01")); // Filter to keep only data from 2000 onward
-
+        }))
+        .filter(row => row.year >= new Date("2000-01-01"))
+        .filter(row => row.gdp >= GDP_THRESHOLD);
 
     // initTooltip(); // Initialize the tooltip
 
