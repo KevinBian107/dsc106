@@ -84,6 +84,13 @@ function draw(data) {
 
     points = data.map((d) => [x(d.year), y(d.elec), d.country]);
 
+    tooltip = svg.append("g")
+    .append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
+    console.log(tooltip)
+
     // Add an invisible layer for the interactive tip.
     dot = svg.append("g")
     .attr("display", "none");
@@ -107,9 +114,60 @@ function pointermoved(event) {
     // ensure line color won't change if we move around the same line
     if (k !== prevk) {
         path.style("stroke", (z) => z[0].country === k ? null : "#ddd");
-
-        line_tooltip(k, x, y);
     }
+
+    // Update tooltip content based on the hovered country
+    tooltip.transition()
+        .duration(200)
+        .style("opacity", 1);
+
+    tooltip.selectAll("svg").remove();
+    
+    const countryData = data.filter(d => d.country === k);
+
+    // const tooltipHTML = `
+    //     <strong>${k}</strong><br>
+    //     <svg width="100" height="100"></svg>
+    // `;
+
+    //tooltip.html(tooltipHTML);
+
+    tooltip.selectAll("path")
+    .data([,])
+    .join("path")
+    .attr("fill", "white")
+    .attr("stroke", "black");
+
+    const tooltipSvg = tooltip.append("svg")
+    .attr("width", 100)
+    .attr("height", 100)
+        //.attr("transform", "translate(10,10)");
+
+    const ele_gen_types = ["coal", "fossil", "gas", "nuclear", "solar", "wind"];
+    
+    ele_gen_types.forEach((ele_type) => {
+        const xTip = d3.scaleTime()
+        .domain(d3.extent(countryData, d => d.year))
+        .range([x-50, x+50]);
+
+        const yTip = d3.scaleLinear()
+        .domain([0, d3.max(countryData, d => d[ele_type])])
+        .range([y-50, y+50]);
+
+        tooltipSvg.select("tooltip")
+        .datum(countryData)
+        .attr("fill", "none")
+        .attr("stroke", 'green')
+        .attr("stroke-width", 1.5)
+        .attr("d", d3.line()
+                .x(function(d) { return xTip(d.year); })
+                .y(function(d) { return yTip(d[ele_type]); })
+            );
+    });
+
+    // Position the tooltip
+    tooltip.style("left", (event.pageX) + "px")
+        .style("top", (event.pageY - 28) + "px");
 
     prevk = k;
 
@@ -118,7 +176,6 @@ function pointermoved(event) {
     dot.select("text").text(k);
     svg.property("value", sumstat[i]).dispatch("input", {bubbles: true});
 
-    console.log(i);
 }
 
 // remove dot and set the line color back if mouse move out of the plot
@@ -218,10 +275,15 @@ load().then(d => {
         d.elec = +d.electricity_generation;
 
         d.coal = +d.coal_electricity;
+    
         d.fossil = +d.fossil_electricity;
+    
         d.gas = +d.gas_electricity;
+    
         d.nuclear = +d.nuclear_electricity;
+    
         d.solar = +d.renewables_electricity;
+
         d.wind = +d.wind_electricity;
     });
 
