@@ -1,20 +1,21 @@
 let svg;
 let data;
-let hoveredId;
-let points;
 let sumstat;
 
+let points;
 let path;
 let dot;
 
 let prevk;
+let tooltip;
 
+// function to load data
 async function load() {
-    const data = await d3.csv("cleaned_data.csv");
+    const data = await d3.csv("electricity_data.csv");
     return data;
 }
 
-// Function to draw x-axis and y-axis
+// Function to draw the graph 
 function draw(data) {
 
     // Group data by country
@@ -22,7 +23,7 @@ function draw(data) {
 
     const margin = {top: 20, right: 20, bottom: 30, left: 30},
         width = 1400 - margin.left - margin.right, 
-        height = 800 - margin.top - margin.bottom; 
+        height = 700 - margin.top - margin.bottom; 
 
     // Append the svg object to the body of the page
     svg = d3.select("svg")
@@ -35,18 +36,30 @@ function draw(data) {
                 .domain(d3.extent(data, d => d.year))
                 .range([0, width]);
 
+    // add x-axis tick
     svg.append("g")
        .attr("transform", `translate(0,${height})`)
        .call(d3.axisBottom(x));
 
     const y = d3.scaleLinear()
-                .domain([0, d3.max(data, d => d.gdp)])
+                .domain([0, d3.max(data, d => d.elec)])
                 .range([height, 0]);
 
+            
+    // add gridline and y-axis tick
     svg.append("g")
-       .call(d3.axisLeft(y));
-
-    points = data.map((d) => [x(d.year), y(d.gdp), d.country]);
+    .attr("transform", `translate(${margin.left},0)`)
+    .call(d3.axisLeft(y).ticks(height / 30))
+    .call(g => g.select(".domain").remove())
+    .call(g => g.selectAll(".tick line").clone()
+        .attr("x2", width - margin.left - margin.right)
+        .attr("stroke-opacity", 0.1))
+    .call(g => g.append("text")
+        .attr("x", -margin.left)
+        .attr("y", 0)
+        .attr("fill", "currentColor")
+        .attr("text-anchor", "start")
+        .text("↑ Electricity Generation (TWh)"));
 
     // Color palette
     const color = d3.scaleOrdinal()
@@ -66,8 +79,10 @@ function draw(data) {
     .style("mix-blend-mode", "multiply")
     .attr("d", d3.line()
                    .x(function(d) { return x(d.year); })
-                   .y(function(d) { return y(d.gdp); })
+                   .y(function(d) { return y(d.elec); })
                 );
+
+    points = data.map((d) => [x(d.year), y(d.elec), d.country]);
 
     // Add an invisible layer for the interactive tip.
     dot = svg.append("g")
@@ -89,22 +104,24 @@ function pointermoved(event) {
     const i = d3.leastIndex(points, ([x, y]) => Math.hypot(x - xm, y - ym));
     const [x, y, k] = points[i];
 
-    // ensure line color won't change if we move around the same line 
+    // ensure line color won't change if we move around the same line
     if (k !== prevk) {
         path.style("stroke", (z) => z[0].country === k ? null : "#ddd");
+
+        line_tooltip(k, x, y);
     }
 
-    prevk = k
+    prevk = k;
 
     dot.attr("display", null);
     dot.attr("transform", `translate(${x},${y})`);
     dot.select("text").text(k);
     svg.property("value", sumstat[i]).dispatch("input", {bubbles: true});
 
-    console.log(i)
+    console.log(i);
 }
 
-
+// remove dot and set the line color back if mouse move out of the plot
 function pointerleft() {
     path.style("mix-blend-mode", "multiply").style("stroke", null);
     dot.attr("display", "none");
@@ -112,30 +129,110 @@ function pointerleft() {
     svg.dispatch("input", {bubbles: true});
 }
 
+
+// adding tooltip functionality (not finished) 
+function initTooltip() {
+    tooltip = d3.select("svg").append("div").attribute("class", "tooltip");
+    // .attr("class", "tooltip")
+    // .style("background-color", "white")
+    // .style("border", "solid")
+    // .style("border-width", "2px")
+    // .style("border-radius", "5px")
+    // .style("padding", "5px")
+}
+
+function line_tooltip(country, x, y) {
+
+    country_data = data.filter((d) => d.country === country)
+
+    initTooltip()
+
+    const xTip = d3.scaleTime()
+    .domain(d3.extent(country_data, d => d.year))
+    .range([x-100, x+100]);
+
+    const yTip = d3.scaleLinear()
+    .domain([0, d3.max(data, d => d.coal)])
+    .range([y-100, y+100]);
+
+    tool_tip.show();
+
+    var tipSVG = d3.select("#tipDiv")
+      .append("svg")
+      .attr("width", 200)
+      .attr("height", 50);
+
+    tipSVG.selectAll(".line")
+    .data(country_data)
+    .enter()
+    .append("path")
+    .transition()
+    .duration(1000)
+    .attr("fill", "none")
+    .attr("stroke-width", 1.5)
+    .attr("d", d3.line()
+                .x(function(d) { return xTip(d.year); })
+                .y(function(d) { return yTip(d.coal); })
+            )
+
+    tipSVG.append("text")
+      .text(country)
+      .attr("x", 10)
+      .attr("y", 30)
+      .transition()
+      .duration(1000)
+      .attr("x", 6 + d * 6)
+
+    // // add x-axis tick
+    // tooltip.append("g")
+    // .attr("transform", `translate(0,${300})`)
+    // .call(d3.axisBottom(xTip));
+
+    // // add gridline and y-axis tick
+    // tooltip.append("g")
+    // .attr("transform", `translate(0,${300})`)
+    // .call(d3.axisLeft(yTip));
+
+    // tooltip
+    // .selectAll(".line")
+    // .data(country_data)
+    // .enter()
+    // .append("path")
+    // .attr("fill", "none")
+    // .attr("stroke-width", 1.5)
+    // .attr("d", d3.line()
+    //             .x(function(d) { return xTip(d.year); })
+    //             .y(function(d) { return yTip(d.coal); })
+    //         )
+    // .attr("display", null);
+
+}
+
+
 // Load and parse the data
 load().then(d => {
     data = d;
     // Parse the data
     data.forEach(function(d) {
         d.year = d3.timeParse("%Y")(d.year);
-        d.gdp = d.gdp;
+        d.elec = +d.electricity_generation;
+
+        d.coal = +d.coal_electricity;
+        d.fossil = +d.fossil_electricity;
+        d.gas = +d.gas_electricity;
+        d.nuclear = +d.nuclear_electricity;
+        d.solar = +d.renewables_electricity;
+        d.wind = +d.wind_electricity;
     });
 
     draw(data);
 
-    // d3.selectAll('path').on("mouseover",function(){
-    //     d3.selectAll('path').style("stroke", "#ddd")
-    //     d3.select(this)
-    //     .style("mix-blend-mode", "multiply")
-    //     .style("stroke", null);
-
-    // })
-    // d3.selectAll('path').on("mouseout",function(){
-    //     d3.selectAll("path")
-    //     .style("mix-blend-mode", "multiply")
-    //     .style("stroke", null)
+    // sumstat.keys().forEach((country) => {
+    //     let country_data = data.filter((d) => d.country === country)
+    //     create_tooltip(country_data)
     // })
 
+    // highlight line plot when mouse is hovering over
     d3.select('svg')
     .on('mousemove', pointermoved)
     .on("pointerleave", pointerleft)
