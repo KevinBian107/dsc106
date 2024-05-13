@@ -1,0 +1,18 @@
+.tooltip {
+    position: absolute;
+    background-color: white;
+    border: solid;
+    border-width: 1px;
+    border-radius: 3px;
+    padding: 3px;
+    box-shadow: 2px 2px 5px 0px rgba(0, 0, 0, 0.2);
+}
+
+#title, #subTitle {
+    margin: 8px;
+}
+
+#data {
+    margin: 8px;
+    font-size: 11px;
+}

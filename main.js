@@ -9,6 +9,8 @@ let dot;
 let prevk;
 let tooltip;
 
+const GDP_THRESHOLD = 1000;  // GDP threshold set at $20 billion
+
 // function to load data
 async function load() {
     const data = await d3.csv("electricity_data.csv");
@@ -21,16 +23,19 @@ function draw(data) {
     // Group data by country
     sumstat = d3.group(data, d => d.country);
 
-    const margin = {top: 20, right: 20, bottom: 30, left: 30},
+    const margin = {top: 20, right: 20, bottom: 30, left: 32},
         width = 1400 - margin.left - margin.right, 
         height = 700 - margin.top - margin.bottom; 
 
     // Append the svg object to the body of the page
-    svg = d3.select("svg")
+    svg = d3.select("#dataviz")
+        .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
         .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    svg.html("<p>Title</p>");
     
     const x = d3.scaleTime()
                 .domain(d3.extent(data, d => d.year))
@@ -46,14 +51,14 @@ function draw(data) {
                 .domain([0, d3.max(data, d => d.gdp)])
                 .range([height, 0]);
 
+    // log scale 
     // const y = d3.scaleLog()
     //         .domain([1, d3.max(data, d => d.gdp)])
     //         .range([height, 0])
-
             
     // add gridline and y-axis tick
     svg.append("g")
-    .attr("transform", `translate(${margin.left},0)`)
+    .attr("transform", `translate(${margin.left-25},0)`)
     .call(d3.axisLeft(y).ticks(height / 30))
     .call(g => g.select(".domain").remove())
     .call(g => g.selectAll(".tick line").clone()
@@ -61,10 +66,10 @@ function draw(data) {
         .attr("stroke-opacity", 0.1))
     .call(g => g.append("text")
         .attr("x", -margin.left)
-        .attr("y", 0)
+        .attr("y", -8)
         .attr("fill", "currentColor")
         .attr("text-anchor", "start")
-        .text("↑ GDP For Each Country"));
+        .text("↑ GDP For Each Country (Billion)"));
 
     // Color palette
     const color = d3.scaleOrdinal()
@@ -87,14 +92,9 @@ function draw(data) {
                    .y(function(d) { return y(d.gdp); })
                 );
 
-    points = data.map((d) => [x(d.year), y(d.elec), d.country]);
+    points = data.map((d) => [x(d.year), y(d.gdp), d.country, d.year]);
 
-    tooltip = svg.append("g")
-    .append("div")
-    .attr("class", "tooltip")
-    .style("opacity", 0);
-
-    console.log(tooltip)
+    initTooltip()
 
     // Add an invisible layer for the interactive tip.
     dot = svg.append("g")
@@ -114,68 +114,157 @@ function draw(data) {
 function pointermoved(event) {
     const [xm, ym] = d3.pointer(event);
     const i = d3.leastIndex(points, ([x, y]) => Math.hypot(x - xm, y - ym));
-    const [x, y, k] = points[i];
+    const [x, y, k, year] = points[i];
 
     // ensure line color won't change if we move around the same line
     if (k !== prevk) {
         path.style("stroke", (z) => z[0].country === k ? null : "#ddd");
     }
 
-    // Update tooltip content based on the hovered country
-    tooltip.transition()
-        .duration(200)
-        .style("opacity", 1);
+    tooltip.selectAll('svg').remove()
 
-    tooltip.selectAll("svg").remove();
+    // Update tooltip content based on the hovered country
+    tooltip.style("opacity", 1)
+
+    // ensure that tooltip box will be within the plot
+    const tooltipPosX = event.pageX > 1150 ? event.pageX - 200 : event.pageX + 30;
+    const tooltipPosY = event.pageY > 400 ? event.pageY - 350 : event.pageY + 30;
+
+    // tooltip position relative to the mouse
+    tooltip
+    .style("left", (tooltipPosX) + "px")
+    .style("top", (tooltipPosY) + "px")
     
     const countryData = data.filter(d => d.country === k);
 
-    // const tooltipHTML = `
-    //     <strong>${k}</strong><br>
-    //     <svg width="100" height="100"></svg>
-    // `;
+    // tooltip box width and height
+    const width = 260, height = 310;
 
-    //tooltip.html(tooltipHTML);
-
-    tooltip.selectAll("path")
-    .data([,])
-    .join("path")
-    .attr("fill", "white")
-    .attr("stroke", "black");
-
-    const tooltipSvg = tooltip.append("svg")
-    .attr("width", 100)
-    .attr("height", 100)
-        //.attr("transform", "translate(10,10)");
+    // tooltip SVG container
+    const tooltipSVG = tooltip
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .append('g')
+    //.style('position', 'absolute')
+    .attr("transform", `translate(${10}, ${10})`);
 
     const ele_gen_types = ["coal", "fossil", "gas", "nuclear", "solar", "wind"];
-    
+
+    // Append text to tooltipSVG
+    tooltipSVG
+    .append("text")
+        .attr("x", -5)
+        .attr("y", 8)
+        .text(k)
+        .style("font-size", "17px")
+        .style("font-weight", "bold");
+    tooltipSVG
+    .append("text")
+        .attr("x", 175)
+        .attr("y", 8)
+        .text(`Year: ${year.getFullYear()}`)
+        .style("font-size", "16px");
+    tooltipSVG
+    .append("text")
+        .attr("x", 25)
+        .attr("y", 30)
+        .text("Electricity generated from sources:")
+        .style("font-size", "14px");
+    tooltipSVG
+    .append("text")
+        .attr("x", 0)
+        .attr("y", 297)
+        .text("Unit: Terawatt hours (TWh)")
+        .style("font-size", "9px");
+
+    let row = 1, col = 1;
+
+    // 6 area plot in tooltip
     ele_gen_types.forEach((ele_type) => {
+
+        let x_range, y_range;
+
+        // set y range
+        y_range = [33+80*row, 33+80*(row-1)+30];
+
+        // set x range
+        if (col === 1) {
+            x_range = [20, 110];
+            col++;
+        } else if (col === 2) {
+            x_range = [150, 240];
+            col = 1;
+            row++;
+        }
+
+        const xDomain = d3.extent(countryData, d => d.year);
+        const yDomain = [0, d3.max(countryData, d => d[ele_type])];
+
         const xTip = d3.scaleTime()
-        .domain(d3.extent(countryData, d => d.year))
-        .range([x-50, x+50]);
-
+        .domain(xDomain)
+        .range(x_range);
         const yTip = d3.scaleLinear()
-        .domain([0, d3.max(countryData, d => d[ele_type])])
-        .range([y-50, y+50]);
+        .domain(yDomain)
+        .range(y_range);
 
-        tooltipSvg.select("tooltip")
+        // add x-axis
+        tooltipSVG.append("g")
+        .attr("transform", `translate(0,${y_range[0]})`)
+        .call(d3.axisBottom(xTip).tickSize(5).tickValues(xDomain))
+        .call(g => g.selectAll("text").style("font-size", "8px"))
+        .style("opacity", 0.7)
+        .style("fill", "#dddddd")
+        .call(g => g.select(".domain").remove());
+
+        // add y-axis
+        tooltipSVG.append("g")
+        .attr("transform", `translate(${x_range[0]},0)`)
+        .call(d3.axisLeft(yTip).tickSize(5).tickValues(yDomain))
+        .call(g => g.selectAll("text").style("font-size", "8px"))
+        .style("opacity", 0.5)
+        .style("fill", "#dddddd")
+        .call(g => g.select(".domain").remove());
+
+        // Add title
+        tooltipSVG.append("text")
+        .attr("x", (x_range[0] + x_range[1]) / 2)
+        .attr("y", y_range[0]-58)
+        .attr("text-anchor", "middle")
+        .style("font-size", "13px")
+        .style("font-weight", "bold")
+        .text(`${ele_type.charAt(0).toUpperCase() + ele_type.slice(1)}`);
+
+        // add area plot
+        tooltipSVG
+        .append("path")
         .datum(countryData)
-        .attr("fill", "none")
+        .attr("fill", "#cce5df")
         .attr("stroke", 'green')
-        .attr("stroke-width", 1.5)
-        .attr("d", d3.line()
+        .attr("stroke-width", 1)
+        .attr("opacity", 0.8)
+        .attr("d", d3.area()
                 .x(function(d) { return xTip(d.year); })
-                .y(function(d) { return yTip(d[ele_type]); })
+                .y1(yTip(0))
+                .y0(function(d) { return yTip(d[ele_type]); })
             );
-    });
 
-    // Position the tooltip
-    tooltip.style("left", (event.pageX) + "px")
-        .style("top", (event.pageY - 28) + "px");
+        // add dots
+        tooltipSVG
+        .append("circle")
+        .datum(countryData)
+        .attr("class", "dot")
+        .attr("cx", xTip(year))
+        .attr("cy", yTip(countryData.filter(d => d.year === year)[0][ele_type]))
+        .attr("r", 3)
+        .style("opacity", 0.8)
+        .style("fill", "green");
+
+    });
 
     prevk = k;
 
+    // line dot 
     dot.attr("display", null);
     dot.attr("transform", `translate(${x},${y})`);
     dot.select("text").text(k);
@@ -183,141 +272,44 @@ function pointermoved(event) {
 
 }
 
+
 // remove dot and set the line color back if mouse move out of the plot
 function pointerleft() {
     path.style("mix-blend-mode", "multiply").style("stroke", null);
     dot.attr("display", "none");
     svg.node().value = null;
     svg.dispatch("input", {bubbles: true});
+    tooltip.style("opacity", 0);
+    //tooltip.selectAll('svg').remove();
 }
 
-
-// adding tooltip functionality (not finished) 
+// initialize tooltip html
 function initTooltip() {
-    tooltip = d3.select("svg").append("div").attribute("class", "tooltip");
-    // .attr("class", "tooltip")
-    // .style("background-color", "white")
-    // .style("border", "solid")
-    // .style("border-width", "2px")
-    // .style("border-radius", "5px")
-    // .style("padding", "5px");
-}
-
-// function initTooltip() {
-//     tooltip = d3.select("body").append("div")
-//         .attr("class", "tooltip")
-//         .style("opacity", 0);
-// }
-
-function line_tooltip(country, x, y) {
-
-    country_data = data.filter((d) => d.country === country)
-
-    initTooltip()
-
-    const xTip = d3.scaleTime()
-    .domain(d3.extent(country_data, d => d.year))
-    .range([x-100, x+100]);
-
-    const yTip = d3.scaleLinear()
-    .domain([0, d3.max(data, d => d.coal)])
-    .range([y-100, y+100]);
-
-    tool_tip.show();
-
-    var tipSVG = d3.select("#tipDiv")
-      .append("svg")
-      .attr("width", 200)
-      .attr("height", 50);
-
-    tipSVG.selectAll(".line")
-    .data(country_data)
-    .enter()
-    .append("path")
-    .transition()
-    .duration(1000)
-    .attr("fill", "none")
-    .attr("stroke-width", 1.5)
-    .attr("d", d3.line()
-                .x(function(d) { return xTip(d.year); })
-                .y(function(d) { return yTip(d.coal); })
-            )
-
-    tipSVG.append("text")
-      .text(country)
-      .attr("x", 10)
-      .attr("y", 30)
-      .transition()
-      .duration(1000)
-      .attr("x", 6 + d * 6)
-
-    // // add x-axis tick
-    // tooltip.append("g")
-    // .attr("transform", `translate(0,${300})`)
-    // .call(d3.axisBottom(xTip));
-
-    // // add gridline and y-axis tick
-    // tooltip.append("g")
-    // .attr("transform", `translate(0,${300})`)
-    // .call(d3.axisLeft(yTip));
-
-    // tooltip
-    // .selectAll(".line")
-    // .data(country_data)
-    // .enter()
-    // .append("path")
-    // .attr("fill", "none")
-    // .attr("stroke-width", 1.5)
-    // .attr("d", d3.line()
-    //             .x(function(d) { return xTip(d.year); })
-    //             .y(function(d) { return yTip(d.coal); })
-    //         )
-    // .attr("display", null);
-
+    tooltip = d3.select("#dataviz")
+    .append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0)
 }
 
 
 // Load and parse the data
-// load().then(d => {
-//     data = d;
-//     // Parse the data
-//     data.forEach(function(d) {
-//         d.year = d3.timeParse("%Y")(d.year);
-//         d.elec = +d.electricity_generation;
-
-//         d.coal = +d.coal_electricity;
-//         d.fossil = +d.fossil_electricity;
-//         d.gas = +d.gas_electricity;
-//         d.nuclear = +d.nuclear_electricity;
-//         d.solar = +d.renewables_electricity;
-//         d.wind = +d.wind_electricity;
-//     });
-    load().then(d => {
-        const GDP_THRESHOLD = 1000;  // GDP threshold set at $20 billion
-
-        data = d.map(row => ({
-            gdp: +row.gdp,
-            year: d3.timeParse("%Y")(row.year),
-            elec: +row.electricity_generation,
-            coal: +row.coal_electricity,
-            fossil: +row.fossil_electricity,
-            gas: +row.gas_electricity,
-            nuclear: +row.nuclear_electricity,
-            solar: +row.renewables_electricity,
-            wind: +row.wind_electricity,
-            country: row.country
-        }))
-        .filter(row => row.year >= new Date("2000-01-01"))
-        .filter(row => row.gdp >= GDP_THRESHOLD);
-
-    // initTooltip(); // Initialize the tooltip
+load().then(d => {
+    data = d.map(row => ({
+        gdp: +row.gdp,
+        year: d3.timeParse("%Y")(row.year),
+        elec: +row.electricity_generation,
+        coal: +row.coal_electricity,
+        fossil: +row.fossil_electricity,
+        gas: +row.gas_electricity,
+        nuclear: +row.nuclear_electricity,
+        solar: +row.renewables_electricity,
+        wind: +row.wind_electricity,
+        country: row.country
+    }))
+    .filter(row => row.year >= new Date("2000-01-01"))
+    .filter(row => row.gdp >= GDP_THRESHOLD);
 
     draw(data);
-
-    // sumstat.keys().forEach((country) => {
-    //     let country_data = data.filter((d) => d.country === country)
-    //     create_tooltip(country_data)
-    // })
 
     // highlight line plot when mouse is hovering over
     d3.select('svg')
