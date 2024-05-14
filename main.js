@@ -24,7 +24,7 @@ let lock = false;
 
 // function to load data
 async function load() {
-    const data = await d3.csv("electricity_data.csv");
+    const data = await d3.csv("asset/electricity_data.csv");
     return data
 }
 
