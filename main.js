@@ -1,15 +1,26 @@
-let svg;
+// data transformation
 let data;
 let sumstat;
 
-let points;
+// svg reference
+let svg;
 let path;
 let dot;
-
-let prevk;
 let tooltip;
 
-const GDP_THRESHOLD = 1000;  // GDP threshold set at $20 billion
+// for finding svg position
+let points;
+let countryPoints;
+
+let tooltipPosX;
+let tooltipPosY;
+
+let prevk;
+let idx;
+
+let lock = false;
+
+// const GDP_THRESHOLD = 1000; 
 
 // function to load data
 async function load() {
@@ -37,7 +48,7 @@ function draw(data) {
 
     svg.html("<p>Title</p>");
     
-    const x = d3.scaleTime()
+    xScale = d3.scaleTime()
                 .domain(d3.extent(data, d => d.year))
                 .range([0, width])
 
@@ -45,9 +56,9 @@ function draw(data) {
     // add x-axis tick
     svg.append("g")
        .attr("transform", `translate(0,${height})`)
-       .call(d3.axisBottom(x));
+       .call(d3.axisBottom(xScale));
 
-    const y = d3.scaleLinear()
+    yScale = d3.scaleLinear()
                 .domain([0, d3.max(data, d => d.gdp)])
                 .range([height, 0]);
 
@@ -58,8 +69,10 @@ function draw(data) {
             
     // add gridline and y-axis tick
     svg.append("g")
-    .attr("transform", `translate(${margin.left-25},0)`)
-    .call(d3.axisLeft(y).ticks(height / 30))
+    .attr("transform", `translate(${margin.left-23},0)`)
+    .call(d3.axisLeft(yScale)
+            .ticks(height / 60)
+            .tickFormat((d) => d > 1 ? `+${(d-1)*100}%` : `${(d-1)*100}%`))
     .call(g => g.select(".domain").remove())
     .call(g => g.selectAll(".tick line").clone()
         .attr("x2", width - margin.left - margin.right)
@@ -69,12 +82,13 @@ function draw(data) {
         .attr("y", -8)
         .attr("fill", "currentColor")
         .attr("text-anchor", "start")
-        .text("↑ GDP For Each Country (Billion)"));
+        .style("font-size", "12px")
+        .text("↑ GDP Growth Rate"));
 
     // Color palette
     const color = d3.scaleOrdinal()
                     .domain(Array.from(sumstat.keys()))
-                    .range(d3.schemeCategory10);
+                    .range(d3.schemeTableau10);
 
     // Draw the line for each country
     path = svg.selectAll("path")
@@ -88,11 +102,11 @@ function draw(data) {
     .attr("stroke-linecap", "round")
     .style("mix-blend-mode", "multiply")
     .attr("d", d3.line()
-                   .x(function(d) { return x(d.year); })
-                   .y(function(d) { return y(d.gdp); })
+                   .x(function(d) { return xScale(d.year); })
+                   .y(function(d) { return yScale(d.gdp); })
                 );
 
-    points = data.map((d) => [x(d.year), y(d.gdp), d.country, d.year]);
+    points = data.map((d) => [xScale(d.year), yScale(d.gdp), d.country, d.year]);
 
     initTooltip()
 
@@ -109,26 +123,49 @@ function draw(data) {
 
 }
 
+// "lock" a specific line (country)  
+function lockLine(event) {
+    if (!lock) {
+        const [xm, ym] = d3.pointer(event);
+        const i = d3.leastIndex(points, ([x, y]) => Math.hypot(x - xm, y - ym));
+        const [_x, _y, k, _year] = points[i];
+
+        countryPoints = points.filter(d => d[2] === k);
+    }
+    // lock if unlocked, unlock if locked
+    lock = !lock
+}
+
 // When the pointer moves, find the closest point, update the interactive tip, and highlight
 // the corresponding line.
 function pointermoved(event) {
+    let x, y, k, year;
+
     const [xm, ym] = d3.pointer(event);
-    const i = d3.leastIndex(points, ([x, y]) => Math.hypot(x - xm, y - ym));
-    const [x, y, k, year] = points[i];
+    if (!lock) {
+        idx = d3.leastIndex(points, ([x, y]) => Math.hypot(x - xm, y - ym));
+        [x, y, k, year] = points[idx];
+
+        // ensure that tooltip box will be within the plot
+        tooltipPosX = event.pageX > 1150 ? event.pageX - 200 : event.pageX + 30;
+        tooltipPosY = event.pageY > 400 ? event.pageY - 380 : event.pageY + 30;
+    } else {
+        idx = d3.leastIndex(countryPoints, ([x, y]) => Math.hypot(x - xm, y - ym));
+        [x, y, k, year] = countryPoints[idx];
+    }
+
 
     // ensure line color won't change if we move around the same line
     if (k !== prevk) {
         path.style("stroke", (z) => z[0].country === k ? null : "#ddd");
+        path.style("opacity", (z) => z[0].country === k ? 1 : 0.5);
+        path.attr("stroke-width", (z) => z[0].country === k ? 2 : 1.5);
     }
 
     tooltip.selectAll('svg').remove()
 
     // Update tooltip content based on the hovered country
     tooltip.style("opacity", 1)
-
-    // ensure that tooltip box will be within the plot
-    const tooltipPosX = event.pageX > 1150 ? event.pageX - 200 : event.pageX + 30;
-    const tooltipPosY = event.pageY > 400 ? event.pageY - 350 : event.pageY + 30;
 
     // tooltip position relative to the mouse
     tooltip
@@ -167,9 +204,9 @@ function pointermoved(event) {
         .style("font-size", "16px");
     tooltipSVG
     .append("text")
-        .attr("x", 25)
+        .attr("x", 15)
         .attr("y", 30)
-        .text("Electricity generated from sources:")
+        .text("Electricity Generation Energy Source:")
         .style("font-size", "14px");
     tooltipSVG
     .append("text")
@@ -213,7 +250,7 @@ function pointermoved(event) {
         .attr("transform", `translate(0,${y_range[0]})`)
         .call(d3.axisBottom(xTip).tickSize(5).tickValues(xDomain))
         .call(g => g.selectAll("text").style("font-size", "8px"))
-        .style("opacity", 0.7)
+        .style("opacity", 0.6)
         .style("fill", "#dddddd")
         .call(g => g.select(".domain").remove());
 
@@ -222,7 +259,7 @@ function pointermoved(event) {
         .attr("transform", `translate(${x_range[0]},0)`)
         .call(d3.axisLeft(yTip).tickSize(5).tickValues(yDomain))
         .call(g => g.selectAll("text").style("font-size", "8px"))
-        .style("opacity", 0.5)
+        .style("opacity", 0.7)
         .style("fill", "#dddddd")
         .call(g => g.select(".domain").remove());
 
@@ -268,7 +305,7 @@ function pointermoved(event) {
     dot.attr("display", null);
     dot.attr("transform", `translate(${x},${y})`);
     dot.select("text").text(k);
-    svg.property("value", sumstat[i]).dispatch("input", {bubbles: true});
+    svg.property("value", sumstat[idx]).dispatch("input", {bubbles: true});
 
 }
 
@@ -276,10 +313,13 @@ function pointermoved(event) {
 // remove dot and set the line color back if mouse move out of the plot
 function pointerleft() {
     path.style("mix-blend-mode", "multiply").style("stroke", null);
+    path.style("opacity", 1);
     dot.attr("display", "none");
     svg.node().value = null;
     svg.dispatch("input", {bubbles: true});
     tooltip.style("opacity", 0);
+    lock=false;
+    prevk=null;
     //tooltip.selectAll('svg').remove();
 }
 
@@ -306,8 +346,8 @@ load().then(d => {
         wind: +row.wind_electricity,
         country: row.country
     }))
-    .filter(row => row.year >= new Date("2000-01-01"))
-    .filter(row => row.gdp >= GDP_THRESHOLD);
+    //.filter(row => row.year >= new Date("2000-01-01"))
+    //.filter(row => row.gdp >= GDP_THRESHOLD);
 
     draw(data);
 
@@ -315,6 +355,7 @@ load().then(d => {
     d3.select('svg')
     .on('mousemove', pointermoved)
     .on("pointerleave", pointerleft)
+    .on("click", lockLine)
     .on("touchstart", event => event.preventDefault());
-
+    
 });

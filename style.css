@@ -6,10 +6,17 @@
     border-radius: 3px;
     padding: 3px;
     box-shadow: 2px 2px 5px 0px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
 }
 
-#title, #subTitle {
-    margin: 8px;
+#title {
+    margin: 6px;
+    font-size: 26px;
+}
+
+#subTitle {
+    margin: 6px;
+    font-size: 14px;
 }
 
 #data {
