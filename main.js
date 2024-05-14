@@ -186,7 +186,7 @@ function pointermoved(event) {
     //.style('position', 'absolute')
     .attr("transform", `translate(${10}, ${10})`);
 
-    const ele_gen_types = ["coal", "fossil", "gas", "nuclear", "solar", "wind"];
+    const ele_gen_types = ["coal", "oil", "gas", "nuclear", "solar", "wind"];
 
     // Append text to tooltipSVG
     tooltipSVG
@@ -335,17 +335,18 @@ function initTooltip() {
 // Load and parse the data
 load().then(d => {
     data = d.map(row => ({
-        gdp: +row.gdp,
+        gdp: +row.growth_gdp,
         year: d3.timeParse("%Y")(row.year),
-        elec: +row.electricity_generation,
         coal: +row.coal_electricity,
-        fossil: +row.fossil_electricity,
+        oil: +row.oil_electricity,
         gas: +row.gas_electricity,
         nuclear: +row.nuclear_electricity,
-        solar: +row.renewables_electricity,
+        solar: +row.solar_electricity,
         wind: +row.wind_electricity,
         country: row.country
     }))
+
+    console.log(data)
     //.filter(row => row.year >= new Date("2000-01-01"))
     //.filter(row => row.gdp >= GDP_THRESHOLD);
 
