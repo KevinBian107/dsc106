@@ -314,6 +314,7 @@ function pointermoved(event) {
 function pointerleft() {
     path.style("mix-blend-mode", "multiply").style("stroke", null);
     path.style("opacity", 1);
+    path.attr("stroke-width", 1.5);
     dot.attr("display", "none");
     svg.node().value = null;
     svg.dispatch("input", {bubbles: true});
