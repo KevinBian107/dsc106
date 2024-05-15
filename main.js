@@ -106,7 +106,7 @@ function draw(data) {
                    .y(function(d) { return yScale(d.gdp); })
                 );
 
-    points = data.map((d) => [xScale(d.year), yScale(d.gdp), d.country, d.year]);
+    points = data.map((d) => [xScale(d.year), yScale(d.gdp), d.gdp, d.country, d.year]);
 
     initTooltip()
 
@@ -128,9 +128,9 @@ function lockLine(event) {
     if (!lock) {
         const [xm, ym] = d3.pointer(event);
         const i = d3.leastIndex(points, ([x, y]) => Math.hypot(x - xm, y - ym));
-        const [_x, _y, k, _year] = points[i];
+        const [_x, _y, _gdp, k, _year] = points[i];
 
-        countryPoints = points.filter(d => d[2] === k);
+        countryPoints = points.filter(d => d[3] === k);
     }
     // lock if unlocked, unlock if locked
     lock = !lock
@@ -139,21 +139,31 @@ function lockLine(event) {
 // When the pointer moves, find the closest point, update the interactive tip, and highlight
 // the corresponding line.
 function pointermoved(event) {
-    let x, y, k, year;
+    let x, y, gdp, k, year;
 
     const [xm, ym] = d3.pointer(event);
     if (!lock) {
         idx = d3.leastIndex(points, ([x, y]) => Math.hypot(x - xm, y - ym));
-        [x, y, k, year] = points[idx];
+        [x, y, gdp, k, year] = points[idx];
 
         // ensure that tooltip box will be within the plot
         tooltipPosX = event.pageX > 1150 ? event.pageX - 200 : event.pageX + 30;
         tooltipPosY = event.pageY > 400 ? event.pageY - 380 : event.pageY + 30;
+
+        // if unlocked, shows country for better line selection experience
+        dot.select("text").text(k);
     } else {
         idx = d3.leastIndex(countryPoints, ([x, y]) => Math.hypot(x - xm, y - ym));
-        [x, y, k, year] = countryPoints[idx];
+        [x, y, gdp, k, year] = countryPoints[idx];
+
+        // if locked, shows gdp instead of country:
+        dot.select("text").text(gdp > 1 ? `+${((gdp-1)*100).toFixed(2)}%` : `${((gdp-1)*100).toFixed(2)}%`);
     }
 
+    // line dot 
+    dot.attr("display", null);
+    dot.attr("transform", `translate(${x},${y})`);
+    svg.property("value", sumstat[idx]).dispatch("input", {bubbles: true});
 
     // ensure line color won't change if we move around the same line
     if (k !== prevk) {
@@ -301,12 +311,6 @@ function pointermoved(event) {
 
     prevk = k;
 
-    // line dot 
-    dot.attr("display", null);
-    dot.attr("transform", `translate(${x},${y})`);
-    dot.select("text").text(k);
-    svg.property("value", sumstat[idx]).dispatch("input", {bubbles: true});
-
 }
 
 
@@ -347,7 +351,6 @@ load().then(d => {
         country: row.country
     }))
 
-    console.log(data)
     //.filter(row => row.year >= new Date("2000-01-01"))
     //.filter(row => row.gdp >= GDP_THRESHOLD);
 
