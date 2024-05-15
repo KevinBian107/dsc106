@@ -157,7 +157,7 @@ function pointermoved(event) {
         [x, y, gdp, k, year] = countryPoints[idx];
 
         // if locked, shows gdp instead of country:
-        dot.select("text").text(gdp > 1 ? `+${((gdp-1)*100).toFixed(2)}%` : `${((gdp-1)*100).toFixed(2)}%`);
+        dot.select("text").text(gdp > 1 ? `${((gdp-1)*100).toFixed(2)}%` : `${((gdp-1)*100).toFixed(2)}%`);
     }
 
     // line dot 
