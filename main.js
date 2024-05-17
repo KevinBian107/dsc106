@@ -35,8 +35,8 @@ function draw(data) {
     sumstat = d3.group(data, d => d.country);
 
     const margin = {top: 20, right: 20, bottom: 30, left: 32},
-        lineLabel = 80;
-        width = 1370 - margin.left - margin.right + lineLabel, 
+        lineLabel = 60;
+        width = 1350 - margin.left - margin.right + lineLabel, 
         height = 700 - margin.top - margin.bottom; 
 
     // Append the svg object to the body of the page
