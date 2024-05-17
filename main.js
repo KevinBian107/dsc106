@@ -35,7 +35,8 @@ function draw(data) {
     sumstat = d3.group(data, d => d.country);
 
     const margin = {top: 20, right: 20, bottom: 30, left: 32},
-        width = 1400 - margin.left - margin.right, 
+        lineLabel = 80;
+        width = 1370 - margin.left - margin.right + lineLabel, 
         height = 700 - margin.top - margin.bottom; 
 
     // Append the svg object to the body of the page
@@ -50,7 +51,7 @@ function draw(data) {
     
     xScale = d3.scaleTime()
                 .domain(d3.extent(data, d => d.year))
-                .range([0, width])
+                .range([0, width-lineLabel])
 
 
     // add x-axis tick
@@ -75,7 +76,7 @@ function draw(data) {
             .tickFormat((d) => d > 1 ? `+${(d-1)*100}%` : `${(d-1)*100}%`))
     .call(g => g.select(".domain").remove())
     .call(g => g.selectAll(".tick line").clone()
-        .attr("x2", width - margin.left - margin.right)
+        .attr("x2", width - margin.left - margin.right-lineLabel/2)
         .attr("stroke-opacity", 0.1))
     .call(g => g.append("text")
         .attr("x", -margin.left)
@@ -120,6 +121,27 @@ function draw(data) {
     dot.append("text")
     .attr("text-anchor", "middle")
     .attr("y", -8);
+
+    addLineLabel();
+}
+
+// add line label at the end of the line
+function addLineLabel() {
+
+    // filter out some countires so that labels are not overlapping
+    const filterIndexs = [20, 13, 8, 4, 9, 16, 27];
+
+    const lastPoints = points.filter(d => d[4].getFullYear() === 2018).filter((_, idx) => filterIndexs.includes(idx));
+
+    const xyCountry = lastPoints.map(d => [d[0], d[1], d[3]]);
+
+    xyCountry.forEach(([x, y, country]) => {
+        svg.append("text")
+            .attr("x", x+5)
+            .attr("y", y+5)
+            .text(country)
+            .style("font-size", "14px")
+    })
 
 }
 
